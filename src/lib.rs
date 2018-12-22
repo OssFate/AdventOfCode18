@@ -1,58 +1,65 @@
-use std::fs::File;
-use std::io::{Read};
+use std::error::Error;
+use std::process;
+use std::fs;
+// use std::fs::File;
+// use std::io::Read;
 
 mod day;
 
-pub fn work_to_do(args: Vec<String>) {
-    let (command, file) =  get_args(args);
+pub fn work_to_do(args: Vec<String>) -> Result<(), Box<dyn Error>> {
 
-    let com = match command {
-        UserInput::Command(x) => x,
-        _ => String::from("None")
-    };
-    println!("Running Command: {}", com);
+    let config = Config::new(&args).unwrap_or_else(|err| {
+        println!("Problem parsing arguments: {}", err);
+        process::exit(1);
+    });
 
-    let file_content = read_file(file);
+    println!("Running Command: {}", config.command);
 
-    match com.as_ref() {
+    let file_content = read_file(config.filepath).unwrap();
+
+    match config.command.as_ref() {
         "one" => day::one::do_work(file_content),
         "two" => day::two::do_work(file_content),
         "three" => day::three::do_work(file_content),
         _ => println!("None option")
     }
 
+    Ok(())
 }
 
-fn read_file(path: UserInput) -> Option<String> {
-
-    let filename = match path {
-        UserInput::File(input) => input,
-        _  => {
-                println!("Not a file!");
-                return None;
-            }
+fn read_file(path: String) -> Result<Option<String>, Box<Error + 'static>> {
+    println!("Reading file: {}\n", path);
+    
+    // let mut f = File::open(path).expect("file not found");
+    // let mut contents = String::new();
+    // f.read_to_string(&mut contents)
+    //     .expect("something went wrong reading the file");
+    
+    let contents =  match fs::read_to_string(path) {
+        Ok(result) => result,
+        Err(e) => {
+            println!("Error reading the file: {}", e);
+            process::exit(1);
+        }
     };
 
-    println!("Reading file: {}", filename);
-    println!("");
-    
-    let mut f = File::open(filename).expect("file not found");
-    let mut contents = String::new();
-    f.read_to_string(&mut contents)
-        .expect("something went wrong reading the file");
-    
-    Some(contents)
+    Ok(Some(contents))
 }
 
-fn get_args(args: Vec<String>) -> (UserInput, UserInput) {
-    let command = UserInput::Command(args[1].clone());
-    let file = UserInput::File(args[2].clone());
-    // println!("{:?}", args);
-
-    (command, file)    
+struct Config {
+    command: String,
+    filepath: String
 }
 
-enum UserInput {
-    Command(String),
-    File(String)
+impl Config {
+    fn new(args: &[String]) -> Result<Config, &'static str> {
+        if args.len() < 3 {
+            return Err("Not enough arguments");
+        }
+
+        let command = args[1].clone();
+        let filepath = args[2].clone();
+
+        Ok(Config { command, filepath })
+    }
 }
